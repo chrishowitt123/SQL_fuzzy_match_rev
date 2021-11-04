@@ -36,14 +36,14 @@ namespace FuzzyMatch
             var namesSQL = @"
 SELECT *
 FROM OPENQUERY(HSSDPRD, 
-'SELECT TOP 3000
+'SELECT TOP 15000
          PAPMI_No as URN
        , PAPMI_Name2 as FirstName
        , PAPMI_Name as LastName
        , PAPMI_RowId->PAPER_Dob as DOB
        , PAPMI_PAPER_DR->PAPER_StName as Address1
        , PAPMI_PAPER_DR->PAPER_ForeignAddress as Address2
-       , PAPMI_RowId->PAPER_Zip_DR->CTZIP_Code as PostCode
+      -- , PAPMI_RowId->PAPER_Zip_DR->CTZIP_Code as PostCode
        , PAPMI_DVAnumber as SocialSecurityNumber
        , PAPMI_RowId->PAPER_Sex_DR->CTSEX_Desc as Gender
 FROM PA_PatMas
@@ -59,8 +59,8 @@ AND PAPMI_Active is NULL
             table.Columns.Add("LastName", typeof(string));
             table.Columns.Add("DOB", typeof(string));
             table.Columns.Add("Address1", typeof(string));
-            table.Columns.Add("Address2", typeof(string));
-            table.Columns.Add("PostCode", typeof(string));
+            //table.Columns.Add("Address2", typeof(string));
+            //table.Columns.Add("PostCode", typeof(string));
             table.Columns.Add("SocialSecurityNumber", typeof(string));
             table.Columns.Add("Gender", typeof(string));
 
@@ -133,8 +133,11 @@ AND PAPMI_Active is NULL
 
             List<string> demographics = new List<string>();
 
+            string urn = string.Empty;
             string toFuzz = string.Empty;
-            var dems = string.Empty;
+            string dems = string.Empty;
+            string ssn = string.Empty;
+
 
             Dictionary<int, List<string>> rowsListDict = new Dictionary<int, List<string>>();
 
@@ -153,7 +156,6 @@ AND PAPMI_Active is NULL
                 File.Delete(xlsxFile);
             }
 
-
             
             foreach (DataTable genderGroup in GendersDS.Tables)
 
@@ -161,6 +163,9 @@ AND PAPMI_Active is NULL
                 var n = 0;
                 foreach (DataRow row in genderGroup.Rows)
                 {
+
+                    urn = row["URN"].ToString();
+
                     toFuzz = toFuzz += string.Join(" ",
 
                         row["FirstName"].ToString(),
@@ -170,15 +175,19 @@ AND PAPMI_Active is NULL
                     toFuzz = toFuzz.Trim();
 
 
-                    dems = dems += string.Join(";", row["URN"].ToString(), 
+                    dems = dems += string.Join(" ",
                         row["Address1"].ToString(),
-                        row["Address2"].ToString(),
-                        row["PostCode"].ToString(),
-                        row["SocialSecurityNumber"].ToString());
+                        row["Address2"].ToString());
+                        //row["PostCode"].ToString(),
 
-                    rowsListDict.Add(n, new List<string>() { toFuzz, dems });
+                    ssn = row["SocialSecurityNumber"].ToString();
+
+                    rowsListDict.Add(n, new List<string>() { urn, toFuzz, dems, ssn });
+                    
+                    urn = string.Empty;
                     toFuzz = string.Empty;
                     dems = string.Empty;
+                    ssn = string.Empty;
                     n = n + 1;
 
                 }
@@ -189,19 +198,17 @@ AND PAPMI_Active is NULL
                 //}
 
 
-
-
                 DataTable final = new DataTable();
 
+                final.Columns.Add("URN1", typeof(int));
                 final.Columns.Add("Name1", typeof(string));
+                final.Columns.Add("URN2", typeof(int));
                 final.Columns.Add("Name2", typeof(string));
                 final.Columns.Add("NameRatio", typeof(int));
-                final.Columns.Add("Dems1", typeof(string));
-                final.Columns.Add("Dems2", typeof(string));
-                final.Columns.Add("DemsRtio", typeof(int));
-
-
-
+                final.Columns.Add("Address1", typeof(string));
+                final.Columns.Add("Address2", typeof(string));
+                final.Columns.Add("SSN1", typeof(string));
+                final.Columns.Add("SSN2", typeof(string));
 
                 foreach (var letter in letters)
             {
@@ -209,22 +216,27 @@ AND PAPMI_Active is NULL
                 {
                     for (int j = i + 1; j < rowsListDict.Count; j++)
                     {
-                        var name1 = rowsListDict[i][0];
-                        var dems1 = rowsListDict[i][1];
+                        var urn1 =  rowsListDict[i][0];
+                        var name1 = rowsListDict[i][1];
+                        var dems1 = rowsListDict[i][2];
+                        var ssn1 = rowsListDict[i][3];
 
-                        var name2 = rowsListDict[j][0];
-                        var dems2 = rowsListDict[j][1];
+                        var urn2 = rowsListDict[j][0];
+                        var name2 = rowsListDict[j][1];
+                        var dems2 = rowsListDict[j][2];
+                        var ssn2 = rowsListDict[i][3];
 
-                        if (name1.StartsWith(letter.ToString()) && name2.StartsWith(letter))   
+                            if (name1.StartsWith(letter.ToString()) && name2.StartsWith(letter))   
                         {
                             var ratio = Fuzz.Ratio(name1, name2);
 
                             if (ratio < 100 && ratio > 94)  
                                 {
-                                sw.WriteLine(String.Join(";", name1, name2, ratio, dems1, dems2));
+                                sw.WriteLine(String.Join(";", urn1, name1, urn2, name2, ratio, dems1, dems2, ssn1, ssn2));
 
-                                final.Rows.Add(name1, name2, ratio, dems1, dems2);
-                                Console.WriteLine($"{name1}, {name2}, {ratio}, {dems1}, {dems2}");
+                                final.Rows.Add(urn1, name1, urn2, name2, ratio, dems1, dems2, ssn1, ssn2);                           
+
+                                Console.WriteLine($"{name1}, {urn1}, {name2}, {urn2}, {ratio}, {dems1}, {dems2}");
                             }
                         }
                     }
@@ -232,11 +244,13 @@ AND PAPMI_Active is NULL
             }
 
 
+                DataColumn DR = final.Columns.Add("DemsRtio", typeof(int));
+                DR.SetOrdinal(7);
 
                 foreach (DataRow row in final.Rows)
                 {
-                    var dem1 = row["Dems1"].ToString();
-                    var dem2 = row["Dems2"].ToString();
+                    var dem1 = row["Address1"].ToString();
+                    var dem2 = row["Address2"].ToString();
 
                     var ratio = Fuzz.Ratio(dem1, dem2);
 
@@ -244,13 +258,22 @@ AND PAPMI_Active is NULL
 
                 }
 
-                    
-                
+                DataColumn SR = final.Columns.Add("SSNRatio", typeof(int));
+                SR.SetOrdinal(10);
+
+                foreach (DataRow row in final.Rows)
+                {
+                    var ssn1 = row["SSN1"].ToString();
+                    var ssn2 = row["SSN2"].ToString();
+
+                    var ratio = Fuzz.Ratio(ssn1, ssn2);
+
+                    row["SSNRatio"] = ratio;
+
+                }
 
 
-
-
-                        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             FileInfo fileInfo = new FileInfo(xlsxFile);
             using (ExcelPackage package = new ExcelPackage(fileInfo))
             {
