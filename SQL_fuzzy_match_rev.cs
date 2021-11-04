@@ -36,7 +36,7 @@ namespace FuzzyMatch
             var namesSQL = @"
 SELECT *
 FROM OPENQUERY(HSSDPRD, 
-'SELECT TOP 100
+'SELECT TOP 3000
          PAPMI_No as URN
        , PAPMI_Name2 as FirstName
        , PAPMI_Name as LastName
@@ -154,11 +154,11 @@ AND PAPMI_Active is NULL
             }
 
 
-            var n = 0;
+            
             foreach (DataTable genderGroup in GendersDS.Tables)
 
             {
-                
+                var n = 0;
                 foreach (DataRow row in genderGroup.Rows)
                 {
                     toFuzz = toFuzz += string.Join(" ",
@@ -167,13 +167,14 @@ AND PAPMI_Active is NULL
                         row["LastName"].ToString(),
                         row["DOB"].ToString().Replace("00:00:00", ""));
 
+                    toFuzz = toFuzz.Trim();
 
-                    dems = dems += string.Join(";", row["Address1"].ToString(),
-                    row["URN"].ToString(),
-                    row["Address2"].ToString(),
-                    row["PostCode"].ToString(),
-                    row["SocialSecurityNumber"].ToString(),
-                    row["Gender"].ToString());
+
+                    dems = dems += string.Join(";", row["URN"].ToString(), 
+                        row["Address1"].ToString(),
+                        row["Address2"].ToString(),
+                        row["PostCode"].ToString(),
+                        row["SocialSecurityNumber"].ToString());
 
                     rowsListDict.Add(n, new List<string>() { toFuzz, dems });
                     toFuzz = string.Empty;
@@ -187,37 +188,39 @@ AND PAPMI_Active is NULL
 
                 //}
 
-            
-
-
-            DataTable final = new DataTable();
-
-            final.Columns.Add("Name1", typeof(string));
-            final.Columns.Add("Dems1", typeof(int));
-            final.Columns.Add("Name2", typeof(string));
-            final.Columns.Add("Dems2", typeof(int));
 
 
 
+                DataTable final = new DataTable();
 
-            foreach (var letter in letters)
+                final.Columns.Add("Name1", typeof(string));
+                final.Columns.Add("Name2", typeof(string));
+                final.Columns.Add("NameRatio", typeof(int));
+                final.Columns.Add("Dems1", typeof(string));
+                final.Columns.Add("Dems2", typeof(string));
+                final.Columns.Add("DemsRtio", typeof(int));
+
+
+
+
+                foreach (var letter in letters)
             {
                 for (int i = 0; i < rowsListDict.Count - 1; i++)
                 {
                     for (int j = i + 1; j < rowsListDict.Count; j++)
                     {
                         var name1 = rowsListDict[i][0];
-                        var name2 = rowsListDict[j][0];
-
                         var dems1 = rowsListDict[i][1];
+
+                        var name2 = rowsListDict[j][0];
                         var dems2 = rowsListDict[j][1];
 
                         if (name1.StartsWith(letter.ToString()) && name2.StartsWith(letter))   
                         {
                             var ratio = Fuzz.Ratio(name1, name2);
 
-                            if (ratio < 100 && ratio > 94)
-                            {
+                            if (ratio < 100 && ratio > 94)  
+                                {
                                 sw.WriteLine(String.Join(";", name1, name2, ratio, dems1, dems2));
 
                                 final.Rows.Add(name1, name2, ratio, dems1, dems2);
@@ -229,7 +232,25 @@ AND PAPMI_Active is NULL
             }
 
 
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+                foreach (DataRow row in final.Rows)
+                {
+                    var dem1 = row["Dems1"].ToString();
+                    var dem2 = row["Dems2"].ToString();
+
+                    var ratio = Fuzz.Ratio(dem1, dem2);
+
+                    row["DemsRtio"] = ratio;
+
+                }
+
+                    
+                
+
+
+
+
+                        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             FileInfo fileInfo = new FileInfo(xlsxFile);
             using (ExcelPackage package = new ExcelPackage(fileInfo))
             {
