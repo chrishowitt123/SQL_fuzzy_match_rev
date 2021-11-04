@@ -36,7 +36,7 @@ namespace FuzzyMatch
             var namesSQL = @"
 SELECT *
 FROM OPENQUERY(HSSDPRD, 
-'SELECT TOP 15000
+'SELECT TOP 3000
          PAPMI_No as URN
        , PAPMI_Name2 as FirstName
        , PAPMI_Name as LastName
@@ -138,7 +138,6 @@ AND PAPMI_Active is NULL
             string dems = string.Empty;
             string ssn = string.Empty;
 
-
             Dictionary<int, List<string>> rowsListDict = new Dictionary<int, List<string>>();
 
             string notepad = @"M:\My Documents\Tests\FuzzyMatch\.txt";
@@ -158,7 +157,6 @@ AND PAPMI_Active is NULL
 
             
             foreach (DataTable genderGroup in GendersDS.Tables)
-
             {
                 var n = 0;
                 foreach (DataRow row in genderGroup.Rows)
@@ -197,7 +195,6 @@ AND PAPMI_Active is NULL
 
                 //}
 
-
                 DataTable final = new DataTable();
 
                 final.Columns.Add("URN1", typeof(int));
@@ -232,16 +229,17 @@ AND PAPMI_Active is NULL
 
                             if (ratio < 100 && ratio > 94)  
                                 {
-                                sw.WriteLine(String.Join(";", urn1, name1, urn2, name2, ratio, dems1, dems2, ssn1, ssn2));
+                                
 
                                 final.Rows.Add(urn1, name1, urn2, name2, ratio, dems1, dems2, ssn1, ssn2);                           
 
-                                Console.WriteLine($"{name1}, {urn1}, {name2}, {urn2}, {ratio}, {dems1}, {dems2}");
+                               
                             }
                         }
                     }
                 }
             }
+
 
 
                 DataColumn DR = final.Columns.Add("DemsRtio", typeof(int));
@@ -255,7 +253,6 @@ AND PAPMI_Active is NULL
                     var ratio = Fuzz.Ratio(dem1, dem2);
 
                     row["DemsRtio"] = ratio;
-
                 }
 
                 DataColumn SR = final.Columns.Add("SSNRatio", typeof(int));
@@ -269,7 +266,14 @@ AND PAPMI_Active is NULL
                     var ratio = Fuzz.Ratio(ssn1, ssn2);
 
                     row["SSNRatio"] = ratio;
+                }
 
+
+                foreach(DataRow row in final.Rows)
+                {
+
+                    Console.WriteLine(String.Join(";", row.ItemArray));
+                    sw.WriteLine(String.Join(";", row.ItemArray));
                 }
 
 
@@ -291,10 +295,12 @@ AND PAPMI_Active is NULL
         }
         watch.Stop();
             TimeSpan C_SharpTime = watch.Elapsed;
-        sw.Close();
+
             Console.WriteLine($"C# took {C_SharpTime.Minutes} minuites and {C_SharpTime.Seconds} seconds to process and write the data.");
             Console.WriteLine("Finished!");
-
+            
+            sw.WriteLine($"Finished @ {DateTime.Now}");
+            sw.Close();
         }
     }
 }
