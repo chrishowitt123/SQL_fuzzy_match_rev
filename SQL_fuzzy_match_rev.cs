@@ -36,7 +36,7 @@ namespace FuzzyMatch
             var namesSQL = @"
 SELECT *
 FROM OPENQUERY(HSSDPRD, 
-'SELECT TOP 3000
+'SELECT 
          PAPMI_No as URN
        , PAPMI_Name2 as FirstName
        , PAPMI_Name as LastName
